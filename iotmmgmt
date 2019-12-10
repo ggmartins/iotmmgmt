@@ -42,6 +42,7 @@ else
 	echo -e "ERROR:  Configuration file .env.iotmmgmt not found.\n\
 	Please try to download from http://<local-iot-server:local-iot-server-port>/.env.iotmmgmt, eg.\n\
         wget http://192.168.1.1/.env.iotmmgmt"
+	exit 1
 fi
 
 if [ ! -f $KNOWN_DEVICES ];then
