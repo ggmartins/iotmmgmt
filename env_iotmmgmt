@@ -1,0 +1,4 @@
+IOTMMGMT_OUI_IEEEDB_URL=http://standards-oui.ieee.org/oui/oui.txt
+IOTMMGMT_OUI_LINUXDB_URL=https://linuxnet.ca/ieee/oui.txt
+IOTMMGMT_USB_IDSDB=http://www.linux-usb.org/usb.ids
+IOTMMGMT_KNOWNDEVICES_URL=http://127.0.0.1/iotmmgmt.knowndevices.csv

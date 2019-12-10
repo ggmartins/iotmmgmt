@@ -1,0 +1,101 @@
+#!/bin/bash
+
+LOG=/tmp/iotmgmt.log
+OUI_IEEE=oui_ieee.txt #oui original, not sanitazed
+OUI_LXNT=oui_lnxnt.txt #oui sanizted by linux net
+KNOWN_DEVICES=iotmmgmt.knowndevices.csv
+function download() {
+	if [ "$HAS_CURL" -eq 0 ]; then
+		echo -e "INFO: Downloading $2 ..."
+		curl $1 > $2 2>> $LOG
+	elif [ "$HAS_WGET" -eq 0 ]; then
+		echo -e "INFO: Downloading $2 ..."
+		wget $1 -O $2 2>> $LOG
+	else
+		echo "ERROR: no download command installed wget/curl. Existing..."
+	fi
+}
+
+which curl 2>&1 >/dev/null
+HAS_CURL=$?
+which wget 2>&1 >/dev/null
+HAS_WGET=$?
+
+if [ -f .env.iotmmgmt ]; then
+	#echo "INFO: Applying configuration file .env.iotmmgmt"
+	source .env.iotmmgmt
+	if [ -z "$IOTMMGMT_OUI_IEEEDB_URL" ]; then
+		echo "ERROR: Variable IOTMMGMT_OUI_IEEEDB_URL not set"
+		exit 1
+	else
+		if [ ! -f "$OUI_IEEE" ];then
+			download $IOTMMGMT_OUI_IEEEDB_URL $OUI_IEEE
+		fi
+		if [ ! -f "$OUI_LXNT" ];then
+			download $IOTMMGMT_OUI_LINUXDB_URL $OUI_LXNT
+		fi
+		if [ ! -f "$KNOWN_DEVICES" ];then
+			download IOTMMGMT_KNOWNDEVICES_URL $KNOWN_DEVICES
+		fi
+	fi
+else
+	echo -e "ERROR:  Configuration file .env.iotmmgmt not found.\n\
+	Please try to download from http://<local-iot-server:local-iot-server-port>/.env.iotmmgmt, eg.\n\
+        wget http://192.168.1.1/.env.iotmmgmt"
+fi
+
+if [ ! -f $KNOWN_DEVICES ];then
+	echo "ERROR: file "$KNOWN_DEVICES" not present" #still not preset?
+	exit 1
+fi
+
+cat $KNOWN_DEVICES | sed 1d > /tmp/$KNOWN_DEVICES
+KNOWN_DEVICES=/tmp/$KNOWN_DEVICES
+
+arp -n | grep eth0 | grep -v incomplete > /tmp/iotmmgmt.arp.txt
+
+INPUT=$KNOWN_DEVICES
+while read line; do
+	macaddress_arp=$(echo "$line" | awk '{ print $3}')
+	ipaddress_arp=$(echo "$line" | awk '{ print $1}')
+	#echo $macaddress_arp
+	OLDIFS=$IFS
+	IFS=','
+	[ ! -f $INPUT ] && { echo "$INPUT file not found"; exit 99; }
+	IS_KNOWN=0
+
+	# macaddress,input_oui_manufacturer,input_type,input_model,lastseenipaddr,macaddress_bundle_1,macaddress_bundle_2
+	while read macaddress input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
+	do
+		if [ "$macaddress_arp" == "$macaddress" ]; then
+		   echo -e $macaddress" -> "$input_oui_manufacturer", "$input_type", "$input_model
+		   IS_KNOWN=1
+		   break
+		fi
+	done < $INPUT
+	IFS=$OLDIFS
+	if [ "$IS_KNOWN" -eq 0 ]; then
+		mac=$(echo -e "${macaddress_arp^^}" | sed "s/\:/\-/g" | cut -c -8)
+		oui=$(cat oui_ieee.txt | grep $mac | cut -c 19-)
+		echo -e "UNKNOWN: "$macaddress_arp" -> ("$ipaddress_arp") "$oui
+	fi
+done </tmp/iotmmgmt.arp.txt
+
+OLDIFS=$IFS
+IFS=','
+while read macaddress input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
+do
+	IS_LISTED=0 #is it preset in the arp? try ping broadcast, eg "ping -b 192.168.1.255"
+	while read line; do
+		macaddress_arp=$(echo "$line" | awk '{ print $3}')
+		if [ "$macaddress_arp" == "$macaddress" ]; then
+			IS_LISTED=1
+			break
+		fi
+	done </tmp/iotmmgmt.arp.txt
+	if [ "$IS_LISTED" -eq 0 ]; then
+		echo -e "UNLISTED: "$macaddress" -> "$input_oui_manufacturer", "$input_type", "$input_model
+	fi
+done < $INPUT
+
+IFS=$OLDIFS
