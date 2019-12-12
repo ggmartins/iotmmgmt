@@ -69,14 +69,17 @@ while read line; do
 	# macaddress,input_oui_manufacturer,input_type,input_model,lastseenipaddr,macaddress_bundle_1,macaddress_bundle_2
 	while read macaddress tag input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
 	do
+		#if [ "$macaddress_arp" == "00:13:ef:70:19:0e" ]; then
+		#	echo "here "$macaddress
+		#fi
 		if [ "$macaddress_arp" == "$macaddress" ] || 
-			[ "$macaddress_arp" == "$macaddress_bundle_1" ] || #bundled with their secondary interafce 
-			[ "$macaddress_arp" == "$macaddress_bundle_2" ]; then
+			[ "$macaddress_arp" == "$macaddress_bundle_1" ] ||
+			[ "$macaddress_arp" == "$macaddress_bundle_2" ]; then #bundled with their secondary interafce 
 
-		   echo -e $macaddress" -> "$input_oui_manufacturer", "$input_type", "$input_model
+		   echo -e $macaddress" -> "$input_oui_manufacturer","$input_type", "$input_model
 		   IS_KNOWN=1
 		   BUNDLES=$BUNDLES" "$macaddress" "$macaddress_bundle_1" "$macaddress_bundle_2
-		   break
+		   #break
 		fi
 	done < $INPUT
 	IFS=$OLDIFS
