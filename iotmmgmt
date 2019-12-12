@@ -56,6 +56,7 @@ KNOWN_DEVICES=/tmp/$KNOWN_DEVICES
 arp -n | grep eth0 | grep -v incomplete > /tmp/iotmmgmt.arp.txt
 
 INPUT=$KNOWN_DEVICES
+BUNDLES=""
 while read line; do
 	macaddress_arp=$(echo "$line" | awk '{ print $3}')
 	ipaddress_arp=$(echo "$line" | awk '{ print $1}')
@@ -66,11 +67,12 @@ while read line; do
 	IS_KNOWN=0
 
 	# macaddress,input_oui_manufacturer,input_type,input_model,lastseenipaddr,macaddress_bundle_1,macaddress_bundle_2
-	while read macaddress input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
+	while read macaddress tag input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
 	do
 		if [ "$macaddress_arp" == "$macaddress" ]; then
 		   echo -e $macaddress" -> "$input_oui_manufacturer", "$input_type", "$input_model
 		   IS_KNOWN=1
+		   BUNDLES=$BUNDLES" "$macaddress_bundle_1" "$macaddress_bundle_2
 		   break
 		fi
 	done < $INPUT
@@ -82,9 +84,9 @@ while read line; do
 	fi
 done </tmp/iotmmgmt.arp.txt
 
-OLDIFS=$IFS
 IFS=','
-while read macaddress input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
+
+while read macaddress tag input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
 do
 	IS_LISTED=0 #is it preset in the arp? try ping broadcast, eg "ping -b 192.168.1.255"
 	while read line; do
@@ -95,7 +97,28 @@ do
 		fi
 	done </tmp/iotmmgmt.arp.txt
 	if [ "$IS_LISTED" -eq 0 ]; then
-		echo -e "UNLISTED: "$macaddress" -> "$input_oui_manufacturer", "$input_type", "$input_model
+
+		#skip certain tags: mgmt (management devices, eg 192.168.1.1), our own laptops etc
+		if [ "$tag" == "mgmt" ];then
+			continue
+		fi
+		if [ "$tag" == "ignore" ];then
+			continue
+		fi
+		IFS=' ' read -r -a array <<< "$BUNDLES"
+		IS_BUNDLED=0
+		for macaddr in "${array[@]}"
+		do
+		    #echo $macaddr" "$macaddress
+		    if [ "$macaddr" == "$macaddress" ];then
+		      IS_BUNDLED=1
+		      break
+	    	    fi
+		done
+		IFS=','
+		if [ "$IS_BUNDLED" -eq 0 ];then
+			echo -e "UNLISTED: "$macaddress" -> "$input_oui_manufacturer", "$input_type", "$input_model
+		fi
 	fi
 done < $INPUT
 
