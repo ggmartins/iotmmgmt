@@ -13,7 +13,7 @@ function download() {
 		echo -e "INFO: Downloading $2 ..."
 		wget $1 -O $2 2>> $LOG
 	else
-		echo "ERROR: no download command installed wget/curl. Existing..."
+		echo "ERROR: no download command installed wget/curl. Exiting..."
 	fi
 }
 
