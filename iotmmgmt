@@ -68,7 +68,7 @@ while read line; do
 	IFS=','
 	[ ! -f $INPUT ] && { echo "$INPUT file not found"; exit 99; }
 	IS_KNOWN=0
-
+	ping -c 1 $ipaddress_arp >/dev/null 2>&1 #todo make this as an option
 	# macaddress,input_oui_manufacturer,input_type,input_model,lastseenipaddr,macaddress_bundle_1,macaddress_bundle_2
 	while read macaddress tag input_oui_manufacturer input_type input_model lastseenipaddr macaddress_bundle_1 macaddress_bundle_2 
 	do
